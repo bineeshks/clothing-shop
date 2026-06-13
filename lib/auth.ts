@@ -1,7 +1,9 @@
-import jwt from 'jsonwebtoken'
+import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+const secretKey = new TextEncoder().encode(JWT_SECRET)
+
 const JWT_EXPIRATION = '24h'
 
 export interface JWTPayload {
@@ -11,15 +13,17 @@ export interface JWTPayload {
 }
 
 export async function generateToken(payload: JWTPayload): Promise<string> {
-  return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: JWT_EXPIRATION,
-  })
+  return await new SignJWT(payload as any)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(JWT_EXPIRATION)
+    .sign(secretKey)
 }
 
 export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload
-    return decoded
+    const { payload } = await jwtVerify(token, secretKey)
+    return payload as unknown as JWTPayload
   } catch (error) {
     return null
   }

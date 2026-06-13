@@ -6,6 +6,7 @@ const nextConfig = {
   output: 'standalone',
   images: {
     unoptimized: true,
+    qualities: [75, 90],
   },
   allowedDevOrigins: ['172.20.10.6'],
 }

@@ -34,87 +34,64 @@ export const metadata: Metadata = {
   },
 }
 
-// Fetch products from MongoDB with fallback to static data
-async function fetchProducts(params?: Record<string, string>): Promise<GridProduct[]> {
+import connectDB from '@/lib/db'
+import Product from '@/lib/models/Product'
+import Banner from '@/lib/models/Banner'
+import Testimonial from '@/lib/models/Testimonial'
+
+// Fetch products directly from MongoDB
+async function fetchProductsFromDB(query: Record<string, any>, limit: number = 8): Promise<GridProduct[]> {
   try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      (process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : 'http://localhost:3000')
-
-    const qs = params
-      ? '?' + new URLSearchParams(params).toString()
-      : ''
-
-    const res = await fetch(`${baseUrl}/api/products${qs}`, {
-      next: { revalidate: 60 }, // ISR: revalidate every 60 seconds
-    })
-
-    if (!res.ok) throw new Error('API error')
-    const data = await res.json()
-    return data.products || []
-  } catch {
-    // Fallback to static data
-    return staticProducts.slice(0, 8) as GridProduct[]
-  }
-}
-
-async function fetchBanners() {
-  try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      (process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : 'http://localhost:3000')
-
-    const res = await fetch(`${baseUrl}/api/banners`, {
-      next: { revalidate: 300 },
-    })
-    if (!res.ok) return []
-    const data = await res.json()
-    return data.banners || []
+    await connectDB()
+    const products = await Product.find(query).sort({ createdAt: -1 }).limit(limit).lean()
+    return JSON.parse(JSON.stringify(products)) as GridProduct[]
   } catch {
     return []
   }
 }
 
-async function fetchTestimonials() {
+async function fetchBannersFromDB() {
   try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      (process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : 'http://localhost:3000')
+    await connectDB()
+    const banners = await Banner.find({ isActive: true }).sort({ order: 1 }).lean()
+    return JSON.parse(JSON.stringify(banners))
+  } catch {
+    return []
+  }
+}
 
-    const res = await fetch(`${baseUrl}/api/testimonials`, {
-      next: { revalidate: 300 },
-    })
-    if (!res.ok) return []
-    const data = await res.json()
-    return data.testimonials || []
+async function fetchTestimonialsFromDB() {
+  try {
+    await connectDB()
+    const testimonials = await Testimonial.find({ isApproved: true }).sort({ rating: -1, createdAt: -1 }).lean()
+    return JSON.parse(JSON.stringify(testimonials))
   } catch {
     return []
   }
 }
 
 export default async function HomePage() {
-  // Fetch all data in parallel
+  // Fetch all data in parallel directly from DB
   const [
     banners,
-    featuredProducts,
-    newArrivals,
-    bestSellers,
-    trendingProducts,
+    featuredProductsDB,
+    newArrivalsDB,
+    bestSellersDB,
+    trendingProductsDB,
     testimonials,
   ] = await Promise.all([
-    fetchBanners(),
-    fetchProducts({ featured: 'true', limit: '8' }),
-    fetchProducts({ newArrival: 'true', limit: '8' }),
-    fetchProducts({ bestSeller: 'true', limit: '8' }),
-    fetchProducts({ trending: 'true', limit: '8' }),
-    fetchTestimonials(),
+    fetchBannersFromDB(),
+    fetchProductsFromDB({ isFeatured: true }),
+    fetchProductsFromDB({ isNewArrival: true }),
+    fetchProductsFromDB({ isBestSeller: true }),
+    fetchProductsFromDB({ isTrending: true }),
+    fetchTestimonialsFromDB(),
   ])
+
+  const featuredProducts = featuredProductsDB.length ? featuredProductsDB : []
+  const newArrivals = newArrivalsDB.length ? newArrivalsDB : []
+  const bestSellers = bestSellersDB.length ? bestSellersDB : []
+  const trendingProducts = trendingProductsDB.length ? trendingProductsDB : []
 
   // Fallback: if no featured products in DB, show first 8 static products
   const displayFeatured =
