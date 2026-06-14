@@ -66,10 +66,10 @@ export async function POST(req: NextRequest) {
 
     const product = await Product.create(body)
     return NextResponse.json({ product }, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error('[vellora] Create product error:', error)
     return NextResponse.json(
-      { error: 'Failed to create product' },
+      { error: error.message || 'Failed to create product' },
       { status: 500 }
     )
   }
