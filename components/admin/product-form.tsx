@@ -69,16 +69,28 @@ export function ProductForm({
     }))
   }
 
-  const handleImageChange = (index: number, value: string) => {
-    const updated = [...imageInputs]
-    updated[index] = value
-    setImageInputs(updated)
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const base64String = reader.result as string
+        setImageInputs(prev => {
+          const valid = prev.filter(img => img.trim() !== '')
+          return [...valid, base64String]
+        })
+      }
+      reader.readAsDataURL(file)
+    })
   }
 
-  const addImageInput = () => setImageInputs(prev => [...prev, ''])
-  const removeImageInput = (index: number) => {
-    if (imageInputs.length === 1) return
-    setImageInputs(prev => prev.filter((_, i) => i !== index))
+  const removeImageInput = (indexToRemove: number) => {
+    setImageInputs(prev => {
+      const valid = prev.filter(img => img.trim() !== '')
+      return valid.filter((_, i) => i !== indexToRemove)
+    })
   }
 
   const handleSizeToggle = (size: string) => {
@@ -333,40 +345,49 @@ export function ProductForm({
       <div>
         <div className="flex items-center justify-between mb-3">
           <label className="block text-sm font-medium">
-            Product Image URLs
+            Product Images
           </label>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addImageInput}
-            className="gap-1"
-          >
-            <Plus className="w-4 h-4" />
-            Add Image
-          </Button>
-        </div>
-        <div className="space-y-2">
-          {imageInputs.map((img, index) => (
-            <div key={index} className="flex gap-2">
-              <Input
-                value={img}
-                onChange={e => handleImageChange(index, e.target.value)}
-                placeholder={`Image URL ${index + 1} (e.g. /placeholder-dress-green.jpg)`}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => removeImageInput(index)}
-                disabled={imageInputs.length === 1}
-                className="flex-shrink-0"
-              >
-                <Trash2 className="w-4 h-4 text-destructive" />
+          <div>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileUpload}
+              className="hidden"
+              id="image-upload"
+            />
+            <label htmlFor="image-upload">
+              <Button type="button" variant="outline" size="sm" className="gap-1" asChild>
+                <span>
+                  <Plus className="w-4 h-4" />
+                  Upload Images
+                </span>
               </Button>
-            </div>
-          ))}
+            </label>
+          </div>
         </div>
+        
+        {imageInputs.filter(img => img.trim() !== '').length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
+            {imageInputs.filter(img => img.trim() !== '').map((img, index) => (
+              <div key={index} className="relative group aspect-square rounded-md overflow-hidden border bg-muted">
+                <img src={img} alt={`Preview ${index}`} className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeImageInput(index)}
+                  className="absolute top-2 right-2 bg-destructive text-destructive-foreground p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="border-2 border-dashed border-border rounded-lg p-8 text-center mt-2">
+            <p className="text-sm text-muted-foreground">No images uploaded yet. Click "Upload Images" to select files.</p>
+          </div>
+        )}
+        
         <p className="text-xs text-muted-foreground mt-2">
           First image will be the main product image.
         </p>
